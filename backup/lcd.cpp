@@ -56,13 +56,14 @@ bool Flavor_chesseStatus = false;
 bool conveyorForward = false;
 bool conveyorBackward = false;
 bool Flavoring = false;
-
 // Function prototypes
 void setupFirebase();
 void fetchTimers();
 void handleProcesses();
 void startProcess();
-void updateFirebase(String path, String value);
+void updateFirebaseString(String path, String value);
+void updateFirebaseInt(String path, int value);
+
 void resetFirebaseValues();
 void startSlicing();
 void startWashing();
@@ -70,26 +71,8 @@ void startDrying();
 void startFrying();
 void startCooling();
 void countdownProcess();
-
-void startProcess();
-void startSlicing();
-void startWashing();
-void startDrying();
-void startFrying();
-void startCooling();
-void startFlavoring();
-void startMixer();
-void countdownProcess();
-void deactivateRelays();
-void updateFirebaseInt(String path, int value);
-void updateFirebaseString(String path, String value);
-void updateFirebaseBool(String path, bool value);
-
-void checkForRestart();
-void manual();
 void sendSMS(String phoneNumber, String message);
 void sendATCommand(String command);
-
 void setup()
 {
     Serial.begin(115200);
@@ -113,7 +96,7 @@ void setup()
     digitalWrite(relay_Flavor_chesse, HIGH);
     digitalWrite(relay_mixerTimer, HIGH);
     digitalWrite(relay_conveyorForward, HIGH);
-    lcdCASAVA.init();
+    lcdCASAVA.begin();
     lcdCASAVA.backlight();
     lcdCASAVA.setCursor(0, 0);
     lcdCASAVA.print("BalingTech!!!");
@@ -132,7 +115,7 @@ void setup()
     lcdCASAVA.clear();
     lcdCASAVA.print("Wi-Fi Connected");
     setupFirebase();
-    // resetFirebaseValues();
+    resetFirebaseValues();
 
     lcdCASAVA.setCursor(0, 0);
     lcdCASAVA.print("System");
@@ -416,18 +399,14 @@ void startProcess()
     case 6:
         startMixer();
         break;
-    case 7:
-        resetFirebaseValues();
-        currentProcessIndex++;
-        break;
     default:
         Serial.println("All processes completed.");
+        lcdCASAVA.begin();
         lcdCASAVA.backlight();
         lcdCASAVA.setCursor(0, 0);
         lcdCASAVA.print("BalingTech!!!");
         lcdCASAVA.setCursor(0, 1);
         lcdCASAVA.print("StageCompleted!");
-
         break;
     }
 }
@@ -590,6 +569,10 @@ void countdownProcess()
                 processRunning = false;
                 currentProcessIndex++;
                 deactivateRelays();
+                updateFirebaseBool("/isFinished", true);
+                updateFirebaseString("/flavorType", "none");
+                updateFirebaseInt("flavorGrams", 0);
+                updateFirebaseString("currentOperation", "None");
 
                 Serial.println("Process finished, moving to the next...");
             }
@@ -633,27 +616,20 @@ void updateFirebaseBool(String path, bool value)
 }
 void resetFirebaseValues()
 {
-    updateFirebaseBool("isFinished", true);
-    updateFirebaseString("currentOperation", "None");
-    updateFirebaseString("flavorType", "none");
-    updateFirebaseInt("flavorGrams", 0);
-
     for (int i = 0; i < 5; i++)
     {
         processTimers[i] = 0;
     }
 
-    // updateFirebaseInt("operationsDuration/Slicing", 0);
-    // updateFirebaseInt("operationsDuration/Washing", 0);
-    // updateFirebaseInt("operationsDuration/Drying", 0);
-    // updateFirebaseInt("operationsDuration/Frying", 0);
-    // updateFirebaseInt("operationsDuration/Cooling", 0);
-    // updateFirebaseInt("operationsDuration/Flavoring", 0);
-    // updateFirebaseInt("operationsDuration/Mixing", 0);
-    // updateFirebaseInt("/remainingTime", 0);
-    // updateFirebaseString("/currentOperation", "None");
-
-    Serial.println("All processes completed. Setting currentOperation to None.");
+    updateFirebaseInt("operationsDuration/Slicing", 0);
+    updateFirebaseInt("operationsDuration/Washing", 0);
+    updateFirebaseInt("operationsDuration/Drying", 0);
+    updateFirebaseInt("operationsDuration/Frying", 0);
+    updateFirebaseInt("operationsDuration/Cooling", 0);
+    updateFirebaseInt("operationsDuration/Flavoring", 0);
+    updateFirebaseInt("operationsDuration/Mixing", 0);
+    updateFirebaseInt("/remainingTime", 0);
+    updateFirebaseString("/currentOperation", "None");
 }
 
 void checkForRestart()
