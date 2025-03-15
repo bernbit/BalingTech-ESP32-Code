@@ -4,37 +4,37 @@
 #include <Arduino.h>
 #include <Firebase_ESP_Client.h>
 
-// Firebase Path Declarations
-extern String DATABASE_URL;
-extern String API_KEY;
-extern String USER_EMAIL;
-extern String USER_PASSWORD;
+// Define Firebase objects and status flags
+extern FirebaseData fbdo, streamSlicingState, streamWashingState, streamDryingState, streamFryingState, streamCoolingState, streamFlavoringState, streamMixingState;
+extern FirebaseAuth auth;
+extern FirebaseConfig config;
+extern String uid;
+extern bool login;
 
-// Firebase Path Declarations
-extern String startOperationPath;
-extern String pauseOperationPath;
-extern String operationsDurationPath;
-extern String remainingTimePath;
-extern String currentOperationPath;
-extern String flavorGramsPath;
-extern String flavorTypePath;
-extern String manualModePath;
-extern String forwardPath;
-extern String backwardPath;
+// Firebase Paths
+extern String startOperation;
+extern String pauseOperation;
+extern String operationsDuration;
+extern String remainingTime;
+extern String currentOperation;
+extern String flavorGrams;
+extern String flavorType;
+extern String manualMode;
+extern String forward;
+extern String backward;
 
-// Function declarations
-void firebaseInit();        
-void firebaseStreamInit();  
+// Function Declarations
+void firebaseInit();
+void firebaseStreamInit();
 
-// Firebase Sending Function
-template <typename SendType>
-void firebaseSendData(SendType data, const std::string& dataPath);
+String firebaseStreamData(FirebaseData &stream, String streamName);
 
-// Firebase Reading Function
-template <typename ReadType>
-void firebaseReadData(ReadType data, String path);
+// Data Type Convertion Functions
+bool parseBool(const String &data);
+int parseInt(const String &data);
+float parseFloat(const String &data);
+String parseString(const String &data);
 
-// Firebase Stream Function
-String firebaseStreamData(FirebaseData& stream, String streamName);
+#include "Firebase_Manager.tpp" // Include template implementation
 
-#endif
+#endif // FIREBASE_MANAGER_H

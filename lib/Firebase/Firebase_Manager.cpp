@@ -2,16 +2,14 @@
 
 // Arduino
 #include <Arduino.h>
-
 // Firebase ESP32 Main Library
 #include <Firebase_ESP_Client.h>
-
+// Firebase ESP32 Helper
 #include "addons/RTDBHelper.h"
 #include "addons/TokenHelper.h"
 
 // Firebase Objects
-FirebaseData fbdo, streamSlicing, streamWashing, streamDrying, streamFrying, streamCooling, streamFlavoring, streamMixing;
-FirebaseJson json;
+FirebaseData fbdo, streamSlicingState, streamWashingState, streamDryingState, streamFryingState, streamCoolingState, streamFlavoringState, streamMixingState;
 FirebaseAuth auth;
 FirebaseConfig config;
 String uid;
@@ -35,8 +33,40 @@ String manualMode = "/manualMode";
 String forward = "/forward";
 String backward = "/backward";
 
+//* Helper Functions
+void beginStream(FirebaseData &stream, String path)
+{
+    if (!Firebase.RTDB.beginStream(&stream, path.c_str()))
+        Serial.printf("Unable to Begin Stream for %s, %s\n\n", path.c_str(), stream.errorReason().c_str());
+}
+
+// Data Type Convertion Functions
+bool parseBool(const String &data)
+{
+    return data == "true";
+}
+
+int parseInt(const String &data)
+{
+    return data.toInt();
+}
+
+float parseFloat(const String &data)
+{
+    return data.toFloat();
+}
+
+String parseString(const String &data)
+{
+    return data;
+}
+
+//! ==================================== Section Divider ===================================================
+
+//* Main Function
 // Firebase Setup Function
-void firebaseInit() {
+void firebaseInit()
+{
     // Assign Value to Firebase Objects
     config.api_key = API_KEY;
     config.database_url = DATABASE_URL;
@@ -53,7 +83,8 @@ void firebaseInit() {
     fbdo.setResponseSize(4096);
 
     Serial.println("Getting User UID");
-    while ((auth.token.uid) == "") {
+    while ((auth.token.uid) == "")
+    {
         Serial.print('.');
         delay(1000);
     }
@@ -62,7 +93,8 @@ void firebaseInit() {
     Serial.print("User UID: ");
     Serial.println(uid);
 
-    if (auth.token.uid != "") {
+    if (auth.token.uid != "")
+    {
         login = true;
     }
 
@@ -70,86 +102,60 @@ void firebaseInit() {
     Serial.print(login);
 }
 
-// Initialize Firebase Streams
-void firebaseStreamInit() {
-    beginStream(streamSlicing, (std::string(operationsDuration.c_str()) + "Slicing").c_str());
-    beginStream(streamWashing, (std::string(operationsDuration.c_str()) + "Washing").c_str());
-    beginStream(streamDrying, (std::string(operationsDuration.c_str()) + "Drying").c_str());
-    beginStream(streamFrying, (std::string(operationsDuration.c_str()) + "Frying").c_str());
-    beginStream(streamCooling, (std::string(operationsDuration.c_str()) + "Cooling").c_str());
-    beginStream(streamFlavoring, (std::string(operationsDuration.c_str()) + "Flavoring").c_str());
-    beginStream(streamMixing, (std::string(operationsDuration.c_str()) + "Mixing").c_str());
-}
-
-// Firebase Sending Function
-template <typename SendType>
-void firebaseSendData(SendType data, const std::string& dataPath) {
-    if (Firebase.RTDB.set(&fbdo, dataPath, data)) {
-        Serial.println();
-        Serial.print(String(data));
-        Serial.print("- successfully saved to: ");
-        Serial.print(fbdo.dataPath());
-        Serial.print(" (");
-        Serial.print(fbdo.dataType());
-        Serial.println(")");
-
-    } else {
-        Serial.print("Failed: ");
-        Serial.println(fbdo.errorReason().c_str());
-    }
-}
-
-// Firebase Reading Function
-template <typename ReadType>
-void firebaseReadData(ReadType data, String path) {
-    if (Firebase.RTDB.get(&fbdo, path)) {
-        data = fbdo.to<ReadType>();
-        Serial.print("Successfully get: ");
-        Serial.println(intValue);
-    } else {
-        Serial.println(fbdo.errorReason());
-    }
+// Firebase Initialize Streams
+void firebaseStreamInit()
+{
+    beginStream(streamSlicingState, (operationsDuration + "/Slicing").c_str());
+    beginStream(streamWashingState, (operationsDuration + "/Washing").c_str());
+    beginStream(streamDryingState, (operationsDuration + "/Drying").c_str());
+    beginStream(streamFryingState, (operationsDuration + "/Frying").c_str());
+    beginStream(streamCoolingState, (operationsDuration + "/Cooling").c_str());
+    beginStream(streamFlavoringState, (operationsDuration + "/Flavoring").c_str());
+    beginStream(streamMixingState, (operationsDuration + "/Mixing").c_str());
 }
 
 // Firebase Stream Function
-String firebaseStreamData(FirebaseData& stream, String streamName) {
-    String result = "";  // Default empty
-
-    if (Firebase.ready() && login) {
-        if (!Firebase.RTDB.readStream(&stream)) {
+String lastStreamData = ""; // global variable to keep last known value
+String firebaseStreamData(FirebaseData &stream, String streamName)
+{
+    if (Firebase.ready() && login)
+    {
+        if (!Firebase.RTDB.readStream(&stream))
+        {
             Serial.printf("Reading %s Stream Failed, %s\n\n", streamName.c_str(), stream.errorReason().c_str());
-            return result;
+            return lastStreamData; // return last known value if failed
         }
 
-        if (stream.streamAvailable()) {
-            String type = stream.dataType();
+        if (stream.streamAvailable())
+        {
 
-            if (type == "boolean") {
+            String type = stream.dataType();
+            String result; // Temporary result for this update
+
+            if (type == "boolean")
+            {
                 result = stream.boolData() ? "true" : "false";
-            } else if (type == "int" || type == "integer") {
+            }
+            else if (type == "int" || type == "integer")
+            {
                 result = String(stream.intData());
-            } else if (type == "float" || type == "double") {
+            }
+            else if (type == "float" || type == "double")
+            {
                 result = String(stream.floatData(), 3);
-            } else if (type == "string") {
+            }
+            else if (type == "string")
+            {
                 result = stream.stringData();
-            } else if (type == "json") {
-                FirebaseJson& json = stream.jsonObject();
-                String jsonStr;
-                json.toString(jsonStr, true);
-                result = jsonStr;
-            } else if (type == "blob") {
-                result = "Blob Data Received";
-            } else {
+            }
+            else
+            {
                 result = "Unknown Data Type";
             }
+
+            lastStreamData = result; // Update last known value
         }
     }
 
-    return result;
-}
-
-// Helper Functions
-void beginStream(FirebaseData& stream, String path) {
-    if (!Firebase.RTDB.beginStream(&stream, path.c_str()))
-        Serial.printf("Unable to Begin Stream for %s, %s\n\n", path.c_str(), stream.errorReason().c_str());
+    return lastStreamData; // Always return last known value
 }
